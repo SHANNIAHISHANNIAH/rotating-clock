@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Radial Time System</title>
+
+  <style>
+    :root {
+      --base: 1;
+      --normal-color: rgba(210, 210, 210, 0.66);
+      --near-color: rgba(235, 235, 235, 0.78);
+      --active-color: #ffffff;
+      --guide-color: rgba(255, 255, 255, 0.085);
+      --axis-color: rgba(255, 255, 255, 0.48);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: "Times New Roman", Times, serif;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at center,
+          rgba(255, 255, 255, 0.075) 0%,
+          rgba(255, 255, 255, 0.025) 28%,
+          rgba(0, 0, 0, 0.98) 70%,
+          #000 100%);
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    #clock {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      transform: translate(-50%, -50%);
+    }
+
+    .axis {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: min(94vw, calc(1450px * var(--base)));
+      height: 1px;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.18) 18%,
+        var(--axis-color) 50%,
+        rgba(255, 255, 255, 0.18) 82%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      box-shadow: 0 0 calc(10px * var(--base)) rgba(255, 255, 255, 0.35);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .center-glow {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: calc(260px * var(--base));
+      height: calc(90px * var(--base));
+      transform: translate(-50%, -50%);
+      background: radial-gradient(
+        ellipse at center,
+        rgba(0, 0, 0, 0.88) 0%,
+        rgba(0, 0, 0, 0.58) 46%,
+        rgba(0, 0, 0, 0) 78%
+      );
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .guide {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid var(--guide-color);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    ul.ring {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 0;
+      height: 0;
+      list-style: none;
+      z-index: 2;
+    }
+
+    ul.ring.no-transition li {
+      transition: none !important;
+    }
+
+    ul.ring li {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: var(--radius);
+      height: calc(30px * var(--base));
+      line-height: calc(30px * var(--base));
+      margin-top: calc(-15px * var(--base));
+      text-align: right;
+      transform-origin: left center;
+      white-space: nowrap;
+      user-select: none;
+
+      color: var(--normal-color);
+      opacity: 0.9;
+
+      font-family: "Times New Roman", Times, serif;
+      font-size: calc(var(--font-size) * var(--base));
+      font-weight: 400;
+      letter-spacing: 0.03em;
+
+      text-shadow: 0 0 calc(2px * var(--base)) rgba(255, 255, 255, 0.12);
+
+      transition:
+        transform 650ms cubic-bezier(0.22, 0.61, 0.36, 1),
+        color 220ms ease,
+        opacity 220ms ease,
+        text-shadow 220ms ease,
+        font-size 220ms ease;
+    }
+
+    ul.ring li.near-axis {
+      color: var(--near-color);
+      opacity: 0.96;
+    }
+
+    ul.ring li.active {
+      color: var(--active-color);
+      opacity: 1;
+      font-size: calc(var(--font-size) * var(--base) * 1.22);
+      font-weight: 700;
+      text-shadow:
+        0 0 calc(6px * var(--base)) rgba(255, 255, 255, 0.9),
+        0 0 calc(18px * var(--base)) rgba(255, 255, 255, 0.55);
+      z-index: 20;
+    }
+
+    .ring-name {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -50%);
+      color: rgba(255, 255, 255, 0.54);
+      font-family: "Times New Roman", Times, serif;
+      font-size: calc(11px * var(--base));
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      white-space: nowrap;
+      user-select: none;
+      text-shadow: 0 0 calc(4px * var(--base)) rgba(255, 255, 255, 0.22);
+      z-index: 1;
+    }
+
+    .corner-title {
+      position: fixed;
+      left: calc(22px * var(--base));
+      bottom: calc(18px * var(--base));
+      color: rgba(255, 255, 255, 0.52);
+      font-size: calc(13px * var(--base));
+      letter-spacing: 0.08em;
+      user-select: none;
+      z-index: 10;
+    }
+
+    .corner-title strong {
+      color: rgba(255, 255, 255, 0.96);
+      font-weight: 700;
+    }
+
+    .corner-hint {
+      position: fixed;
+      right: calc(22px * var(--base));
+      bottom: calc(18px * var(--base));
+      color: rgba(255, 255, 255, 0.36);
+      font-size: calc(12px * var(--base));
+      letter-spacing: 0.08em;
+      user-select: none;
+      z-index: 10;
+    }
+
+    .dust {
+      position: fixed;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.34);
+      pointer-events: none;
+      z-index: 0;
+      animation: twinkle 4s ease-in-out infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% {
+        opacity: 0.08;
+        transform: scale(0.75);
+      }
+
+      50% {
+        opacity: 0.42;
+        transform: scale(1.15);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .corner-title,
+      .corner-hint {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="stage">
+    <div class="axis"></div>
+    <div class="center-glow"></div>
+    <div id="clock"></div>
+
+    <div class="corner-title">
+      <strong>RADIAL TIME SYSTEM</strong> / YEAR · MONTH · DAY · WEEK · HOUR · MINUTE · SECOND
+    </div>
+
+    <div class="corner-hint">
+      CURRENT VALUES ALIGN ON THE HORIZONTAL AXIS
+    </div>
+  </div>
+
+  <script>
+    class DOMRadialClock {
+      constructor(root) {
+        this.root = root;
+
+        this.months = [
+          "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+          "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+        ];
+
+        this.weekdays = [
+          "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY",
+          "THURSDAY", "FRIDAY", "SATURDAY"
+        ];
+
+        /*
+          baseRadius 是 1536 x 768 屏幕下的参考半径。
+          每一圈的当前值都会落在同一条水平线上。
+        */
+        this.ringDefs = [
+          {
+            key: "year",
+            title: "YEAR",
+            baseRadius: 74,
+            fontSize: 19,
+            direction: 1
+          },
+          {
+            key: "month",
+            title: "MONTH",
+            baseRadius: 150,
+            fontSize: 22,
+            direction: -1
+          },
+          {
+            key: "day",
+            title: "DAY",
+            baseRadius: 230,
+            fontSize: 20,
+            direction: 1
+          },
+          {
+            key: "week",
+            title: "WEEK",
+            baseRadius: 365,
+            fontSize: 22,
+            direction: -1
+          },
+          {
+            key: "hour",
+            title: "HOUR",
+            baseRadius: 485,
+            fontSize: 20,
+            direction: 1
+          },
+          {
+            key: "minute",
+            title: "MINUTE",
+            baseRadius: 595,
+            fontSize: 16,
+            direction: -1
+          },
+          {
+            key: "second",
+            title: "SECOND",
+            baseRadius: 705,
+            fontSize: 15,
+            direction: 1
+          }
+        ];
+
+        this.rings = {};
+        this.base = 1;
+        this.timer = null;
+
+        this.init();
+      }
+
+      init() {
+        this.createDust();
+        this.resize();
+
+        const snapshot = this.getSnapshot();
+        this.ringDefs.forEach(def => {
+          const item = snapshot[def.key];
+          this.createRing(def, item.labels, item.value);
+        });
+
+        this.updateAll(true);
+
+        window.addEventListener("resize", () => {
+          this.resize();
+          this.refreshLayout();
+        });
+
+        this.timer = setInterval(() => this.updateAll(false), 1000);
+      }
+
+      pad(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      range(count, callback) {
+        return Array.from({ length: count }, (_, i) => callback(i));
+      }
+
+      daysInMonth(year, monthIndex) {
+        return new Date(year, monthIndex + 1, 0).getDate();
+      }
+
+      sameLabels(a, b) {
+        if (!a || !b || a.length !== b.length) return false;
+
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) return false;
+        }
+
+        return true;
+      }
+
+      resize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        /*
+          这里故意让外圈可以略微超出屏幕高度，
+          这样会更接近你参考图的视觉效果。
+        */
+        this.base = Math.min(width / 1536, height / 768);
+        this.base = Math.max(0.52, Math.min(this.base, 1.25));
+
+        document.documentElement.style.setProperty("--base", this.base.toFixed(4));
+      }
+
+      refreshLayout() {
+        Object.values(this.rings).forEach(ring => {
+          const radius = ring.def.baseRadius * this.base;
+
+          ring.radius = radius;
+          ring.el.style.setProperty("--radius", `${radius}px`);
+          ring.el.style.setProperty("--font-size", `${ring.def.fontSize}px`);
+
+          ring.guide.style.width = `${radius * 2}px`;
+          ring.guide.style.height = `${radius * 2}px`;
+          ring.guide.style.left = `${-radius}px`;
+          ring.guide.style.top = `${-radius}px`;
+
+          ring.name.style.left = "0px";
+          ring.name.style.top = `${-radius - 22 * this.base}px`;
+        });
+      }
+
+      createDust() {
+        const stage = document.getElementById("stage");
+        const count = 70;
+
+        for (let i = 0; i < count; i++) {
+          const dot = document.createElement("div");
+          dot.className = "dust";
+
+          const x = (Math.sin(i * 12.9898) * 0.5 + 0.5) * 100;
+          const y = (Math.cos(i * 78.233) * 0.5 + 0.5) * 100;
+          const size = 1 + (Math.sin(i * 34.42) * 0.5 + 0.5) * 1.4;
+
+          dot.style.left = `${x}%`;
+          dot.style.top = `${y}%`;
+          dot.style.width = `${size}px`;
+          dot.style.height = `${size}px`;
+          dot.style.animationDelay = `${(i % 12) * 0.31}s`;
+          dot.style.animationDuration = `${3.4 + (i % 8) * 0.33}s`;
+
+          stage.appendChild(dot);
+        }
+      }
+
+      getSnapshot() {
+        const now = new Date();
+
+        const year = now.getFullYear();
+        const monthIndex = now.getMonth();
+        const dayCount = this.daysInMonth(year, monthIndex);
+
+        return {
+          year: {
+            labels: this.range(13, i => String(year - 6 + i)),
+            value: 6
+          },
+          month: {
+            labels: this.months,
+            value: monthIndex
+          },
+          day: {
+            labels: this.range(dayCount, i => this.pad(i + 1)),
+            value: now.getDate() - 1
+          },
+          week: {
+            labels: this.weekdays,
+            value: now.getDay()
+          },
+          hour: {
+            labels: this.range(24, i => this.pad(i)),
+            value: now.getHours()
+          },
+          minute: {
+            labels: this.range(60, i => this.pad(i)),
+            value: now.getMinutes()
+          },
+          second: {
+            labels: this.range(60, i => this.pad(i)),
+            value: now.getSeconds()
+          }
+        };
+      }
+
+      createRing(def, labels, value) {
+        const guide = document.createElement("div");
+        guide.className = "guide";
+
+        const name = document.createElement("div");
+        name.className = "ring-name";
+        name.textContent = def.title;
+
+        const ul = document.createElement("ul");
+        ul.className = `ring ring-${def.key}`;
+        ul.style.setProperty("--font-size", `${def.fontSize}px`);
+
+        labels.forEach((text, index) => {
+          const li = document.createElement("li");
+          li.textContent = text;
+          li.dataset.index = String(index);
+          ul.appendChild(li);
+        });
+
+        this.root.appendChild(guide);
+        this.root.appendChild(name);
+        this.root.appendChild(ul);
+
+        const ring = {
+          def,
+          labels,
+          count: labels.length,
+          current: value,
+          visual: value,
+          el: ul,
+          items: Array.from(ul.children),
+          guide,
+          name,
+          radius: def.baseRadius * this.base
+        };
+
+        this.rings[def.key] = ring;
+
+        this.refreshLayout();
+        this.applyRing(ring, true);
+      }
+
+      rebuildRing(def, labels, value) {
+        const old = this.rings[def.key];
+
+        if (old) {
+          old.el.remove();
+          old.guide.remove();
+          old.name.remove();
+        }
+
+        this.createRing(def, labels, value);
+      }
+
+      updateAll(immediate) {
+        const snapshot = this.getSnapshot();
+
+        this.ringDefs.forEach(def => {
+          const next = snapshot[def.key];
+          const ring = this.rings[def.key];
+
+          if (!ring || !this.sameLabels(ring.labels, next.labels)) {
+            this.rebuildRing(def, next.labels, next.value);
+            return;
+          }
+
+          this.updateRing(ring, next.value, immediate);
+        });
+      }
+
+      updateRing(ring, nextValue, immediate) {
+        if (nextValue === ring.current && !immediate) return;
+
+        if (immediate) {
+          ring.current = nextValue;
+          ring.visual = nextValue;
+          this.applyRing(ring, true);
+          return;
+        }
+
+        let delta = nextValue - ring.current;
+
+        /*
+          这里解决 59 -> 00、23 -> 00、SATURDAY -> SUNDAY 时的倒转问题。
+          visual 永远向前增加，所以动画不会突然反向大转一圈。
+        */
+        if (delta < 0) {
+          delta += ring.count;
+        }
+
+        ring.visual += delta;
+        ring.current = nextValue;
+
+        this.applyRing(ring, false);
+      }
+
+      applyRing(ring, immediate) {
+        const step = 360 / ring.count;
+
+        if (immediate) {
+          ring.el.classList.add("no-transition");
+        }
+
+        ring.items.forEach(li => {
+          const index = Number(li.dataset.index);
+
+          let angle;
+
+          if (ring.def.direction === 1) {
+            angle = (ring.count - index + ring.visual) * step;
+          } else {
+            angle = (index - ring.visual) * step;
+          }
+
+          li.style.transform = `rotate(${angle}deg)`;
+
+          const normalized = ((angle % 360) + 360) % 360;
+          const distanceToAxis = Math.min(
+            Math.abs(normalized),
+            Math.abs(360 - normalized)
+          );
+
+          li.classList.toggle("active", index === ring.current);
+          li.classList.toggle("near-axis", distanceToAxis < 22 && index !== ring.current);
+        });
+
+        if (immediate) {
+          ring.el.offsetHeight;
+          requestAnimationFrame(() => {
+            ring.el.classList.remove("no-transition");
+          });
+        }
+      }
+    }
+
+    const clockRoot = document.getElementById("clock");
+    new DOMRadialClock(clockRoot);
+  </script>
+</body>
+</html>
